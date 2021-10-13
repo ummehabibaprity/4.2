@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>170104004-PartB</title>
+</head>
+
+
+
+
+<body style="margin: 0px;">
+    <canvas id="webgl-canvas" width="500" height="500"></canvas>
+
+    <script>
+
+        // created function
+
+        function rotateMat(thetaX, thetaY) {
+            var rad = thetaX * Math.PI / 180;
+            var rotateMatX = new Float32Array([
+                1.0, 0.0, 0.0, 0.0,
+                0.0, Math.cos(rad), Math.sin(rad), 0.0,
+                0.0, -Math.sin(rad), Math.cos(rad), 0.0,
+                0.0, 0.0, 0.0, 1.0]);
+
+            var rad = thetaY * Math.PI / 180;
+            var rotateMatY = new Float32Array([
+                Math.cos(rad), 0.0, -Math.sin(rad), 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                Math.sin(rad), 0.0, Math.cos(rad), 0.0,
+                0.0, 0.0, 0.0, 1.0]);
+
+            return {
+                x: rotateMatX,
+                y: rotateMatY,
+            }
+        }
+
+        function scaleMat(scaleVal) {
+            var s = scaleVal;
+            var scaleMat = new Float32Array([s, 0.0, 0.0, 0.0,
+                0.0, s, 0.0, 0.0,
+                0.0, 0.0, s, 0.0,
+                0.0, 0.0, 0.0, 1.0]);
+
+            return scaleMat
+        }
+
+        function transMat(tx, ty, tz) {
+            var transMat = new Float32Array([
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                tx, ty, tz, 1.0]);
+            return transMat
+        }
+
+        function basicMat() {
+            let basicM = new Float32Array([1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1]);
+
+            return basicM
+        }
+
+        function eyeMat(xe = 0, ye = 0, ze = 0.0) {
+
+            var eyeMat = new Float32Array([1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                -xe, -ye, -ze, 1]);
+            return eyeMat
+
+
+        }
+
+        function percProjMat(aspect = 1.0, fov = 75.0, far = 10.0, near = 1.0) {
+
+            var pa = 1.0 / (aspect * Math.tan((fov / 2) * Math.PI / 180));
+            var pb = 1.0 / (Math.tan((fov / 2) * Math.PI / 180));
+            var pc = -(far + near) / (far - near);
+            var pd = -(2.0 * far * near) / (far - near);
+
+            var persMat = new Float32Array([pa, 0.0, 0.0, 0.0,
+                0.0, pb, 0, 0.0,
+                0.0, 0.0, pc, -1.0,
+                0.0, 0.0, pd, 0.0]);
+
+
+            return persMat;
+
+        }
+
+        function createProgram(gl, vertexShaderSource, fragmentShaderSource) {
+
+            var vsh = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vsh, vertexShaderSource);
+            gl.compileShader(vsh);
+
+            var fsh = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fsh, fragmentShaderSource);
+            gl.compileShader(fsh);
+
+            var prog = gl.createProgram();
+            gl.attachShader(prog, vsh);
+            gl.attachShader(prog, fsh);
+            gl.linkProgram(prog);
+
+            return prog;
+        }
+
+        function model1(color = {
+            min: 0.0,
+            max: 1.0
+        }) {
+            let coords = new Float32Array([
+
+                // // font face
+
+                -0.5, -0.5, 0.5,
+                0.5, -0.5, 0.5,
+                0.0, 0.5, 0.0,
+
+
+                // Right face
+                0.0, 0.5, 0.0,
+                0.5, -0.5, 0.5,
+                0.5, -0.5, -0.5,
+
+                // Back face
+                0.0, 0.5, 0.0,
+                0.5, -0.5, -0.5,
+                -0.5, -0.5, -0.5,
+
+                // Left face
+                0.0, 0.5, 0.0,
+                -0.5, -0.5, -0.5,
+                -0.5, -0.5, 0.5,
+
+                // bottom face 
+                -0.5, -0.5, -0.5,
+                0.5, -0.5, -0.5,
+                0.5, -0.5, 0.5,
+                -0.5, -0.5, 0.5,
+
+
+            ]);
+
+
+            let indices = new Uint8Array([
+
+
+                0, 1, 2, //font face
+                3, 4, 5, //right face
+                6, 7, 8, //back face
+                9, 10, 11, //left face
+                12, 13, 14, 12, 14, 15, //bottom face
+            ]);
+
+
+            let colors = new Float32Array([
+                color.max, 0.0, 0.0,
+                color.max, 0.0, 0.0,
+                color.max, 0.0, 0.0,
+
+                0.0, 0.0, color.max,
+                0.0, 0.0, color.max,
+                0.0, 0.0, color.max,
+
+                0.0, color.max, 0.0,
+                0.0, color.max, 0.0,
+                0.0, color.max, 0.0,
+
+                0.0, color.max, color.max,
+                0.0, color.max, color.max,
+                0.0, color.max, color.max,
+
+                color.max, 0.0, color.max,
+                color.max, 0.0, color.max,
+                color.max, 0.0, color.max,
+
+                color.max, 0.0, color.max,
+
+            ]);
+            return {
+                coords: coords,
+                indices: indices,
+                colors: colors,
+            }
+
+        }
+
+        function addAttribute(gl, location, buffer, coords) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, coords, gl.STATIC_DRAW);
+            gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(location);
+        }
+
+        function addIndex(gl, buffer, indices) {
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+        }
+
+        function ClearScreen3d(gl) {
+            gl.clearColor(0, 0, 0, 1.0);
+            gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.CULL_FACE);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        }
+
+        function drawWithOutClear(gl, length) {
+            gl.drawElements(gl.TRIANGLES, length, gl.UNSIGNED_BYTE, 0);
+        }
+
+        function initProgram(gl) {
+            let vertexShaderSource =
+                `void main() {
+                    gl_Position = vec4(0.0 ,0.0,0.0,1.0);
+                }`;
+
+            let fragmentShaderSource =
+                `
+            void main() {
+                gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+            }`;
+            var prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+            gl.useProgram(prog);
+            let bufferInd = gl.createBuffer();
+            addIndex(gl, bufferInd, [0])
+            return 0
+        }
+
+        function initModel1(gl, constVal = {
+            minMaxColor: {
+                min: 0.0,
+                max: 1.0,
+            },
+            rotation: {
+                x: 0,
+                y: 0,
+            },
+            scale: 0.5,
+            transform: {
+                x: 0,
+                y: 0,
+                z: 0
+            },
+            eye: {
+                xe: 0,
+                ye: 0,
+                ze: 0
+            },
+            perspectiveProjection: {
+                aspect: 1.0,
+                fov: 75.0,
+                far: 10.0,
+                near: 1.0,
+            },
+
+
+        }) {
+            let model_1 = model1(color = constVal.minMaxColor)
+            let vertexShaderSource =
+                `attribute vec3 a_coords;
+                attribute vec3 a_colors;
+                uniform mat4 u_RotY;
+                uniform mat4 u_RotX;
+                uniform mat4 u_Scale;
+                uniform mat4 u_Trans;
+                uniform mat4 u_Basis;
+                uniform mat4 u_Eye;
+                uniform mat4 u_Pers;
+                varying vec3 v_color;
+                void main() {
+                    mat4 M = u_Trans*u_RotX*u_RotY*u_Scale;
+                    mat4 P = u_Pers;
+                    mat4 V = u_Basis*u_Eye;
+                    mat4 MVP = P*V*M;
+                    gl_Position = MVP*vec4(a_coords, 1.0);
+                    v_color = a_colors;
+                }`;
+
+            let fragmentShaderSource =
+
+                `precision mediump float;
+            varying vec3 v_color;
+            void main() {
+                gl_FragColor = vec4(v_color, 1.0);
+            }`;
+
+            var prog = createProgram(gl, vertexShaderSource, fragmentShaderSource);
+            gl.useProgram(prog);
+
+            let a_coords_location = gl.getAttribLocation(prog, "a_coords");
+            let a_coords_buffer = gl.createBuffer();
+            addAttribute(gl, a_coords_location, a_coords_buffer, model_1.coords)
+
+            let a_colors_location = gl.getAttribLocation(prog, "a_colors");
+            let a_colors_buffer = gl.createBuffer();
+            addAttribute(gl, a_colors_location, a_colors_buffer, model_1.colors)
+
+            let bufferInd = gl.createBuffer();
+            addIndex(gl, bufferInd, model_1.indices)
+
+            let rotMat = rotateMat(constVal.rotation.x, constVal.rotation.y)
+            let u_matrix_rotateX_location = gl.getUniformLocation(prog, "u_RotX");
+            gl.uniformMatrix4fv(u_matrix_rotateX_location, false, rotMat.x);
+            let u_matrix_rotateY_location = gl.getUniformLocation(prog, "u_RotY");
+            gl.uniformMatrix4fv(u_matrix_rotateY_location, false, rotMat.y);
+
+            let scalMat = scaleMat(constVal.scale)
+            let u_matrix_scale_location = gl.getUniformLocation(prog, "u_Scale");
+            gl.uniformMatrix4fv(u_matrix_scale_location, false, scalMat);
+
+            let trnsMat = transMat(constVal.transform.x, constVal.transform.y, constVal.transform.z)
+            let u_matrix_trans_location = gl.getUniformLocation(prog, "u_Trans");
+            gl.uniformMatrix4fv(u_matrix_trans_location, false, trnsMat);
+
+            let basicMa = basicMat();
+            let u_matrix_eye_location = gl.getUniformLocation(prog, "u_Basis");
+            gl.uniformMatrix4fv(u_matrix_eye_location, false, basicMa);
+
+            var eyeMa = eyeMat(constVal.eye.xe, constVal.eye.ye, constVal.eye.ze);
+            let u_matrix_basis_location = gl.getUniformLocation(prog, "u_Eye");
+            gl.uniformMatrix4fv(u_matrix_basis_location, false, eyeMa);
+
+            var persMat = percProjMat(
+                constVal.perspectiveProjection.aspect,
+                constVal.perspectiveProjection.fov,
+                constVal.perspectiveProjection.far,
+                constVal.perspectiveProjection.near,
+
+            )
+
+            let u_matrix_pers_location = gl.getUniformLocation(prog, "u_Pers");
+            gl.uniformMatrix4fv(u_matrix_pers_location, false, persMat);
+
+
+            return model_1.indices.length
+
+        }
+
+        // Main Init
+        let start, previousTimeStamp,
+            isOpacityReduce1 = true,
+            isOpacityReduce2 = true,
+            maxColorModel1 = 1.1,
+            maxColorModel2 = 1.1, angle = 0, scaleGlobal = 0.5, scaleZ = 0.1;
+
+        let GlobalCamera = {
+            xe: 0.0,
+            ye: 0,
+            ze: 1
+        }
+
+        function model_1_Call(gl) {
+            angle += 2;
+            if (isOpacityReduce1) {
+                maxColorModel1 -= 0.02 // slow color update
+            } else {
+                maxColorModel1 += 0.01 // slow color update
+            }
+            if (maxColorModel1 <= 0.0) {
+                isOpacityReduce1 = false
+            }
+            else if (maxColorModel1 >= 1.2) {
+                isOpacityReduce1 = true
+            }
+
+            // scaleZ += 0.1
+
+            let paramValue_1 = {
+                minMaxColor: {
+                    min: 0.0,
+                    max: maxColorModel1,
+                },
+                rotation: {
+                    x: 0,
+                    y: 45,
+                },
+                scale: scaleGlobal,
+                transform: {
+                    x: -0.5,
+                    y: -0.1,
+                    z: -1.5
+                },
+                eye: GlobalCamera,
+                perspectiveProjection: {
+                    aspect: 1.0,
+                    fov: 75.0,
+                    far: 10.0,
+                    near: 1.0,
+                },
+            }
+            let indexModel1 = initModel1(gl, paramValue_1)
+            drawWithOutClear(gl, indexModel1)
+        }
+
+        function model_2_Call(gl) {
+            angle += 2;
+            if (isOpacityReduce2) {
+                maxColorModel2 -= Math.random() % 0.02 // slow color update
+            } else {
+                maxColorModel2 += Math.random() % 0.01 // slow color update
+            } 
+            if (maxColorModel2 <= 0.0) {
+                isOpacityReduce2 = false
+            }
+            else if (maxColorModel2 >= 1.2) {
+                isOpacityReduce2 = true
+            }
+
+            let paramValue_1 = {
+                minMaxColor: {
+                    min: 0.0,
+                    max: maxColorModel2,
+                },
+                rotation: {
+                    x: 0,
+                    y: 110,
+                },
+                scale: scaleGlobal * 1.7,
+                transform: {
+                    x: 0.4,
+                    y: 0.0,
+                    z: -1.5
+                },
+                eye: GlobalCamera,
+                perspectiveProjection: {
+                    aspect: 1.0,
+                    fov: 75.0,
+                    far: 10.0,
+                    near: 1.0,
+                },
+            }
+            let indexModel1 = initModel1(gl, paramValue_1)
+            drawWithOutClear(gl, indexModel1)
+        }
+
+        function stepAnimModel1(gl, timestamp) {
+            if (start === undefined) {
+                ClearScreen3d(gl)
+                model_1_Call(gl)
+                model_2_Call(gl)
+            }
+            start = timestamp;
+            const elapsed = timestamp - start;
+
+            if (previousTimeStamp !== timestamp) {
+                ClearScreen3d(gl)
+                model_1_Call(gl)
+                model_2_Call(gl)
+            }
+
+            let random = 10000 + Math.random() * 10000
+            if (elapsed < random) {
+                previousTimeStamp = timestamp
+                window.requestAnimationFrame((timestamp) => stepAnimModel1(gl, timestamp));
+            }
+        }
+
+        function stepAnimModel2(gl, timestamp) {
+            if (start === undefined) {
+
+            }
+            start = timestamp;
+            const elapsed = timestamp - start;
+
+            if (previousTimeStamp !== timestamp) {
+                angle += 2;
+                if (isOpacityReduce) {
+                    maxColor -= 0.01
+                } else {
+                    maxColor += 0.01
+                }
+                if (maxColor <= 0.0) {
+                    isOpacityReduce = false
+                }
+                else if (maxColor >= 1.2) {
+                    isOpacityReduce = true
+                }
+
+                // scaleZ += 0.1
+                ClearScreen3d(gl)
+                let paramValue_1 = {
+                    minMaxColor: {
+                        min: 0.0,
+                        max: maxColor,
+                    },
+                    rotation: {
+                        x: 0,
+                        y: angle,
+                    },
+                    scale: scaleGlobal,
+                    transform: {
+                        x: 0.5,
+                        y: 0.2,
+                        z: -1.5
+                    },
+                    eye: {
+                        xe: 0,
+                        ye: 0,
+                        ze: 1
+                    },
+                    perspectiveProjection: {
+                        aspect: 1.0,
+                        fov: 75.0,
+                        far: 10.0,
+                        near: 1.0,
+                    },
+                }
+                let indexModel1 = initModel1(gl, paramValue_1)
+                drawWithOutClear(gl, indexModel1)
+
+            }
+
+
+        }
+
+        function init() {
+            var canvas = document.getElementById("webgl-canvas");
+            var gl = canvas.getContext("webgl");
+
+            window.requestAnimationFrame((timestamp) => stepAnimModel1(gl, timestamp));
+
+        }
+
+        init()
+
+        window.onkeydown = (e) => {
+            console.log(e)
+            switch (e.key) {
+                case "ArrowUp":
+                    GlobalCamera.ye -= 0.2
+                    break;
+
+                case "ArrowDown":
+                    GlobalCamera.ye += 0.2
+                    break;
+
+                case "ArrowLeft":
+                    GlobalCamera.xe += 0.2
+                    break;
+
+                case "ArrowRight":
+                    GlobalCamera.xe -= 0.2
+                    break;
+
+                case "a":
+                    GlobalCamera.ze -= 0.2
+                    break;
+
+                case "s":
+                    GlobalCamera.ze += 0.2
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+
+    </script>
+</body>
+
+</html>
